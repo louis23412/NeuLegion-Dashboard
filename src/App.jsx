@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import './App.css';
 
 const ProgressBar = ({ value, label, color = '#ffaa33', max = 100 }) => (
@@ -162,13 +162,195 @@ const FullControllerDetails = ({ controller, type }) => {
   );
 };
 
+const CandleChart = ({ 
+  candles = [], 
+  entryPrice, 
+  exitPrice, 
+  stopLoss,
+  direction = '',
+  enlarged = false
+}) => {
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const drawChart = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || candles.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    const containerWidth = container.clientWidth - (enlarged ? 80 : 48);
+    const displayWidth = enlarged 
+      ? Math.min(containerWidth, 1280) 
+      : Math.max(520, Math.min(containerWidth, 1180));
+    const displayHeight = Math.floor(displayWidth * (enlarged ? 0.48 : 0.42));
+
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+    ctx.fillStyle = '#161616';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    if (candles.length < 2) {
+      ctx.fillStyle = '#666';
+      ctx.font = '16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('Waiting for candle data...', displayWidth/2, displayHeight/2);
+      return;
+    }
+
+    let minPrice = Infinity, maxPrice = -Infinity, maxVolume = 0;
+    candles.forEach(c => {
+      minPrice = Math.min(minPrice, c.low);
+      maxPrice = Math.max(maxPrice, c.high);
+      maxVolume = Math.max(maxVolume, c.volume || 0);
+    });
+    [entryPrice, exitPrice, stopLoss].forEach(p => {
+      if (typeof p === 'number' && !isNaN(p)) {
+        minPrice = Math.min(minPrice, p);
+        maxPrice = Math.max(maxPrice, p);
+      }
+    });
+
+    const priceRange = maxPrice - minPrice || 1;
+    const padding = priceRange * 0.09;
+    minPrice -= padding;
+    maxPrice += padding;
+
+    const paddingLeft = 78;
+    const paddingRight = 68;
+    const paddingTop = 42;
+    const paddingBottom = 30;
+    const mainChartHeight = displayHeight - paddingTop - paddingBottom;
+    const volumeHeight = Math.floor(mainChartHeight * 0.22);
+
+    const chartHeight = mainChartHeight - volumeHeight;
+    const volumeYStart = paddingTop + chartHeight + 12;
+
+    const candleCount = candles.length;
+    const slotWidth = (displayWidth - paddingLeft - paddingRight) / candleCount;
+    const bodyWidth = Math.max(5.5, Math.floor(slotWidth * 0.56));
+
+    const getY = (price) => paddingTop + ((maxPrice - price) / priceRange) * chartHeight;
+
+    ctx.strokeStyle = '#1f1f1f';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    for (let i = 0; i <= 6; i++) {
+      const y = paddingTop + (i / 6) * chartHeight;
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft - 12, y);
+      ctx.lineTo(displayWidth - paddingRight + 16, y);
+      ctx.stroke();
+
+      const priceVal = maxPrice - (i / 6) * priceRange;
+      ctx.fillStyle = '#555';
+      ctx.font = '10.5px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(priceVal.toFixed(5), paddingLeft - 18, y + 3.5);
+    }
+    ctx.setLineDash([]);
+
+    candles.forEach((candle, i) => {
+      const x = paddingLeft + i * slotWidth + slotWidth / 2;
+      const highY = getY(candle.high);
+      const lowY = getY(candle.low);
+      const openY = getY(candle.open);
+      const closeY = getY(candle.close);
+
+      const isBullish = candle.close >= candle.open;
+      const color = isBullish ? '#22c55e' : '#ef4444';
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.35;
+      ctx.beginPath();
+      ctx.moveTo(x, highY);
+      ctx.lineTo(x, lowY);
+      ctx.stroke();
+
+      const top = Math.min(openY, closeY);
+      const height = Math.max(Math.abs(closeY - openY), 2);
+      ctx.fillStyle = color;
+      ctx.fillRect(x - bodyWidth/2, top, bodyWidth, height);
+      ctx.strokeStyle = '#0a0a0a';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(x - bodyWidth/2, top, bodyWidth, height);
+    });
+
+    const volMax = maxVolume || 1;
+    const volSlot = slotWidth * 0.7;
+    candles.forEach((candle, i) => {
+      const x = paddingLeft + i * slotWidth + slotWidth / 2 - volSlot / 2;
+      const volHeightPx = (candle.volume || 0) / volMax * volumeHeight * 0.92;
+      const y = volumeYStart + volumeHeight - volHeightPx;
+      ctx.fillStyle = '#ffffff22';
+      ctx.fillRect(x, y, volSlot, volHeightPx);
+    });
+
+    const levelDefs = [
+      { price: entryPrice, color: '#ffaa33', dash: [3, 2] },
+      { price: exitPrice,  color: '#22c55e', dash: [5, 3] },
+      { price: stopLoss,   color: '#ef4444', dash: [3, 3] }
+    ];
+
+    levelDefs.forEach(({ price, color, dash }) => {
+      if (!price || typeof price !== 'number' || isNaN(price)) return;
+      const y = getY(price);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.25;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft - 12, y);
+      ctx.lineTo(displayWidth - paddingRight + 12, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    ctx.fillStyle = '#666';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    const step = Math.max(1, Math.floor(candleCount / 8));
+    candles.forEach((c, i) => {
+      if (i % step === 0 || i === candleCount - 1) {
+        const xPos = paddingLeft + i * slotWidth + slotWidth / 2;
+        ctx.fillText(c.id ? `#${11 - (i + 1)}` : (i+1).toString(), xPos, displayHeight - 12);
+      }
+    });
+
+  }, [candles, entryPrice, exitPrice, stopLoss, direction, enlarged]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => drawChart());
+    observer.observe(container);
+    drawChart();
+    return () => observer.disconnect();
+  }, [drawChart]);
+
+  return (
+    <div ref={containerRef} className={`candle-chart-container ${enlarged ? 'enlarged' : ''}`}>
+      <canvas ref={canvasRef} className="candle-canvas" />
+    </div>
+  );
+};
+
 const App = () => {
   const [legionState, setLegionState] = useState({
     consensus: {},
     controllers: {},
     memoryVaultStats: {},
-    overview: {}
+    overview: {},
+    lastCandles : []
   });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -178,12 +360,13 @@ const App = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('accuracy');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showChartModal, setShowChartModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://10.97.65.148:3001');
+      const response = await fetch('http://10.97.65.114:3001');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
@@ -384,6 +567,54 @@ const App = () => {
           </div>
         </div>
 
+        <div className="border">
+          <div className="stat-group">
+            <div className="stat-row">
+              <div className="stat-item">
+                <span className="stat-label">Buy Trade Accuracy</span>
+                <span className="stat-value">{legionState.consensus.record?.buyTradeAccuracy || 0} %</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Sell Trade Accuracy</span>
+                <span className="stat-value">{legionState.consensus.record?.sellTradeAccuracy || 0} %</span>
+              </div>
+            </div>
+
+            <div className="stat-row">
+              <div className="stat-item">
+                <span className="stat-label">Buy Confidence Accuracy</span>
+                <span className="stat-value">{legionState.consensus.record?.buyConfidenceAccuracy || 0} %</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Sell Confidence Accuracy</span>
+                <span className="stat-value">{legionState.consensus.record?.sellConfidenceAccuracy || 0} %</span>
+              </div>
+            </div>
+
+            <div className="stat-row">
+              <div className="stat-item">
+                <span className="stat-label">Buy Accuracy Score</span>
+                <span className="stat-value">{legionState.consensus.record?.buyAccuracyScore || 0}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Sell Accuracy Score</span>
+                <span className="stat-value">{legionState.consensus.record?.sellAccuracyScore || 0}</span>
+              </div>
+            </div>
+
+            <div className="stat-row">
+              <div className="stat-item">
+                <span className="stat-label">Final Accuracy Score</span>
+                <span className="stat-value">{legionState.consensus.record?.finalAccuracyScore || 0}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Open simulations</span>
+                <span className="stat-value">{legionState.consensus.record?.openSimulations || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="border memory-section">
           <div className="stat-group">
             <ProgressBar
@@ -407,6 +638,44 @@ const App = () => {
           </div>
         </div>
       </div>
+
+      <div className='border candle-section'>
+        <CandleChart 
+          candles={legionState.lastCandles || []}
+          entryPrice={legionState.consensus?.entryPrice}
+          exitPrice={legionState.consensus?.exitPrice}
+          stopLoss={legionState.consensus?.stopLoss}
+          direction={legionState.consensus?.direction}
+        />
+        
+        <button 
+          className="enlarge-chart-btn"
+          onClick={() => setShowChartModal(true)}
+        >
+          🔎 View Enlarged Chart
+        </button>
+      </div>
+
+      {showChartModal && (
+        <div className="modal-overlay" onClick={() => setShowChartModal(false)}>
+          <div className="modal enlarged-chart-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>NeuLegion — Full Candle View</h2>
+              <button className="close-btn" onClick={() => setShowChartModal(false)}>×</button>
+            </div>
+            <div className="modal-body enlarged">
+              <CandleChart 
+                candles={legionState.lastCandles || []}
+                entryPrice={legionState.consensus?.entryPrice}
+                exitPrice={legionState.consensus?.exitPrice}
+                stopLoss={legionState.consensus?.stopLoss}
+                direction={legionState.consensus?.direction}
+                enlarged={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="controllers-controls">
         <input

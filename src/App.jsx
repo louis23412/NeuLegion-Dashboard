@@ -1,23 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import './App.css';
 
-const ProgressBar = ({ value, label, color = '#ffaa33', max = 100 }) => (
-  <div className="progress-container">
-    <div className="progress-label">
-      {label} <span className="progress-value">{value}%</span>
-    </div>
-    <div className="progress-bar-outer">
-      <div
-        className="progress-bar-inner"
-        style={{
-          width: `${Math.min(Math.max((value / max) * 100, 0), 100)}%`,
-          background: `linear-gradient(to right, ${color})`
-        }}
-      />
-    </div>
-  </div>
-);
-
 const ControllerCompactCard = ({ controller, type, onViewDetails }) => {
   const isPositive = type === 'positive';
   const probColor = controller.stats.probability > 70 ? 'green' : controller.stats.probability > 45 ? 'accent' : 'red';
@@ -40,7 +23,7 @@ const ControllerCompactCard = ({ controller, type, onViewDetails }) => {
           <span className="stat-value">{controller.stats.accuracyScore}</span>
         </div>
         <div className="stat-item">
-          <span className="stat-label">Probability</span>
+          <span className="stat-label">Confidence</span>
           <span className={`stat-value ${probColor}`}>{controller.stats.probability} %</span>
         </div>
         <div className="stat-item">
@@ -61,9 +44,7 @@ const ControllerCompactCard = ({ controller, type, onViewDetails }) => {
   );
 };
 
-const FullControllerDetails = ({ controller, type }) => {
-  const isPositive = type === 'positive';
-
+const FullControllerDetails = ({ controller }) => {
   return (
     <div className="controller">
       <div className="modal-section">
@@ -75,15 +56,15 @@ const FullControllerDetails = ({ controller, type }) => {
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Input size</span><span className="stat-value">{controller.params.inputSize}</span></div>
+            <div className="stat-item"><span className="stat-label">Min / Max move %</span><span className="stat-value">{controller.params.minMove} / {controller.params.maxMove} %</span></div>
+          </div>
+          <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Candles used</span><span className="stat-value">{controller.params.candlesUsed}</span></div>
             <div className="stat-item"><span className="stat-label">Indicators used</span><span className="stat-value">{controller.params.indicatorsUsed}</span></div>
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Atr factor</span><span className="stat-value">{controller.params.atrFactor}×</span></div>
             <div className="stat-item"><span className="stat-label">Stop factor</span><span className="stat-value">{controller.params.stopFactor}×</span></div>
-          </div>
-          <div className="stat-row">
-            <div className="stat-item"><span className="stat-label">Min / Max move %</span><span className="stat-value">{controller.params.minMove} / {controller.params.maxMove} %</span></div>
           </div>
         </div>
       </div>
@@ -93,15 +74,16 @@ const FullControllerDetails = ({ controller, type }) => {
         <div className="stat-group">
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Entry price</span><span className="stat-value">{controller.price.entryPrice}</span></div>
+            <div className="stat-item"></div>
           </div>
           <div className="stat-row">
             <div className="stat-item">
               <span className="stat-label">Exit price</span>
-              <span className="stat-value">{controller.price.exitPrice} ({isPositive ? '+' : '-'}{controller.price.profitPct} %)</span>
+              <span className="stat-value">{controller.price.exitPrice} ( +{controller.price.profitPct} % )</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">Stop loss</span>
-              <span className="stat-value">{controller.price.stopLoss} ({isPositive ? '-' : '+'}{controller.price.stopLossPct} %)</span>
+              <span className="stat-value">{controller.price.stopLoss} ( -{controller.price.stopLossPct} % )</span>
             </div>
           </div>
         </div>
@@ -115,11 +97,9 @@ const FullControllerDetails = ({ controller, type }) => {
               <span className="stat-label">Confidence</span>
               <span className="stat-value">{controller.stats.lifetimeMinProb} &lt; {controller.stats.probability} % &gt; {controller.stats.lifetimeMaxProb}</span>
             </div>
-          </div>
-          <div className="stat-row">
             <div className="stat-item">
               <span className="stat-label">Accuracy score</span>
-              <span className="stat-value">{controller.stats.lifetimeMaxScore} &lt; {controller.stats.accuracyScore} &gt; {controller.stats.lifetimeMinScore}</span>
+              <span className="stat-value">{controller.stats.lifetimeMinScore} &lt; {controller.stats.accuracyScore} &gt; {controller.stats.lifetimeMaxScore}</span>
             </div>
           </div>
           <div className="stat-row">
@@ -138,7 +118,7 @@ const FullControllerDetails = ({ controller, type }) => {
       </div>
 
       <div className="modal-section">
-        <h4 className="section-title">Memory &amp; Hive</h4>
+        <h4 className="section-title">Memory</h4>
         <div className="stat-group">
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Memory connections</span><span className="stat-value">{controller.memory.memoryConnections}</span></div>
@@ -508,133 +488,130 @@ const App = () => {
       )}
 
       <div className="overview-section">
-        <div className="border">
-          <div className="stat-group">
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Status</span>
-                <span className="stat-value">{legionState.overview.status || '—'}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Candle</span>
-                <span className="stat-value">{legionState.overview.candleCounter || 0}</span>
-              </div>
+        <div className='border'>
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Status</span>
+              <span className="stat-value">{legionState.overview.status || '—'}</span>
             </div>
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Last update</span>
-                <span className="stat-value">{legionState.overview.updateTime || 0} s</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Runtime</span>
-                <span className="stat-value">{legionState.overview.runtimeSeconds || 0} s</span>
-              </div>
+
+            <div className="stat-item">
+              <span className="stat-label">Candle</span>
+              <span className="stat-value">{legionState.overview.candleCounter || 0}</span>
+            </div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Last update</span>
+              <span className="stat-value">{legionState.overview.updateTime || 0} s</span>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-label">Runtime</span>
+              <span className="stat-value">{legionState.overview.runtimeSeconds || 0} s</span>
             </div>
           </div>
         </div>
 
-        <div className="border">
-          <div className="stat-group">
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Direction</span>
-                <span className={`stat-value ${legionState.consensus.direction === 'BUY' ? 'green' : 'red'}`}>
-                  {legionState.consensus.direction || '—'}
-                </span>
-              </div>
-              <div className="stat-item">
-                <ProgressBar
-                  value={legionState.consensus.confidence || 0}
-                  color={`${legionState.consensus.direction === 'BUY'? '#22c55e' : '#ef4444'}`}
-                />
-              </div>
+        <div className='border'>
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Direction</span>
+              <span className='stat-value'>
+                {legionState.consensus.direction || '—'} ( {legionState.consensus.confidence || 0} % )
+              </span>
             </div>
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Entry</span><span className="stat-value">{legionState.consensus.entryPrice || '—'}</span></div>
-              <div className="stat-item">
-                <span className="stat-label">Exit</span>
-                <span className="stat-value">
-                  {legionState.consensus.exitPrice || '—'} ({legionState.consensus.direction === 'BUY' ? '+' : '-'}{legionState.consensus.profitPct || 0} %)
-                </span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Stop Loss</span>
-                <span className="stat-value">
-                  {legionState.consensus.stopLoss || '—'} ({legionState.consensus.direction === 'BUY' ? '-' : '+'}{legionState.consensus.stopLossPct || 0} %)
-                </span>
-              </div>
+
+            <div className="stat-item"><span className="stat-label">Entry</span><span className="stat-value">{legionState.consensus.entryPrice || '—'}</span></div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Exit</span>
+              <span className="stat-value">{legionState.consensus.exitPrice || '—'} ( +{legionState.consensus.profitPct || 0} % )</span>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-label">Stop Loss</span>
+              <span className="stat-value">{legionState.consensus.stopLoss || '—'} ( -{legionState.consensus.stopLossPct || 0} % )</span>
             </div>
           </div>
         </div>
 
-        <div className="border">
-          <div className="stat-group">
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Buy Trade Accuracy</span>
-                <span className="stat-value">{legionState.consensus.record?.buyTradeAccuracy || 0} %</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Sell Trade Accuracy</span>
-                <span className="stat-value">{legionState.consensus.record?.sellTradeAccuracy || 0} %</span>
-              </div>
+        <div className='border'>
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Open simulations</span>
+              <span className="stat-value">{legionState.consensus.record?.openSimulations || 0}</span>
             </div>
 
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Buy Confidence Accuracy</span>
-                <span className="stat-value">{legionState.consensus.record?.buyConfidenceAccuracy || 0} %</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Sell Confidence Accuracy</span>
-                <span className="stat-value">{legionState.consensus.record?.sellConfidenceAccuracy || 0} %</span>
-              </div>
+            <div className="stat-item">
+              <span className="stat-label">Final Accuracy Score</span>
+              <span className="stat-value">{legionState.consensus.record?.finalAccuracyScore || 0}</span>
+            </div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Buy Accuracy Score</span>
+              <span className="stat-value">{legionState.consensus.record?.buyAccuracyScore || 0}</span>
             </div>
 
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Buy Accuracy Score</span>
-                <span className="stat-value">{legionState.consensus.record?.buyAccuracyScore || 0}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Sell Accuracy Score</span>
-                <span className="stat-value">{legionState.consensus.record?.sellAccuracyScore || 0}</span>
-              </div>
+            <div className="stat-item">
+              <span className="stat-label">Sell Accuracy Score</span>
+              <span className="stat-value">{legionState.consensus.record?.sellAccuracyScore || 0}</span>
+            </div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Buy Trade Accuracy</span>
+              <span className="stat-value">{legionState.consensus.record?.buyTradeAccuracy || 0} %</span>
             </div>
 
-            <div className="stat-row">
-              <div className="stat-item">
-                <span className="stat-label">Final Accuracy Score</span>
-                <span className="stat-value">{legionState.consensus.record?.finalAccuracyScore || 0}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Open simulations</span>
-                <span className="stat-value">{legionState.consensus.record?.openSimulations || 0}</span>
-              </div>
+            <div className="stat-item">
+              <span className="stat-label">Sell Trade Accuracy</span>
+              <span className="stat-value">{legionState.consensus.record?.sellTradeAccuracy || 0} %</span>
+            </div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Buy Confidence Accuracy</span>
+              <span className="stat-value">{legionState.consensus.record?.buyConfidenceAccuracy || 0} %</span>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-label">Sell Confidence Accuracy</span>
+              <span className="stat-value">{legionState.consensus.record?.sellConfidenceAccuracy || 0} %</span>
             </div>
           </div>
         </div>
 
-        <div className="border memory-section">
-          <div className="stat-group">
-            <ProgressBar
-              value={legionState.memoryVaultStats.vaultFillPercentage || 0}
-              label="Vault Fill"
-              color="#ffaa33"
-            />
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Total vault memories</span><span className="stat-value">{legionState.memoryVaultStats.totalVaultMemories || 0}</span></div>
+        <div className='border'>
+          <div className='stat-row'>
+            <div className="stat-item"><span className="stat-label">Total vault memories</span><span className="stat-value">{legionState.memoryVaultStats.totalVaultMemories || 0}</span></div>
+
+            <div className='stat-item'>
+              <span className='stat-label'>Vault Fill</span>
+              <span className='stat-value'>{legionState.memoryVaultStats.vaultFillPercentage || 0} %</span>
             </div>
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Positive volatile</span><span className="stat-value green">{legionState.memoryVaultStats.volatilePos || 0}</span></div>
-              <div className="stat-item"><span className="stat-label">Negative volatile</span><span className="stat-value red">{legionState.memoryVaultStats.volatileNeg || 0}</span></div>
-              <div className="stat-item"><span className="stat-label">Total volatile</span><span className="stat-value">{legionState.memoryVaultStats.totalVolatile || 0}</span></div>
-            </div>
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Positive core</span><span className="stat-value green">{legionState.memoryVaultStats.corePos || 0}</span></div>
-              <div className="stat-item"><span className="stat-label">Negative core</span><span className="stat-value red">{legionState.memoryVaultStats.coreNeg || 0}</span></div>
-              <div className="stat-item"><span className="stat-label">Total core</span><span className="stat-value">{legionState.memoryVaultStats.totalCore || 0}</span></div>
-            </div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item"><span className="stat-label">Positive volatile</span><span className="stat-value">{legionState.memoryVaultStats.volatilePos || 0}</span></div>
+            <div className="stat-item"><span className="stat-label">Positive core</span><span className="stat-value">{legionState.memoryVaultStats.corePos || 0}</span></div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item"><span className="stat-label">Negative volatile</span><span className="stat-value">{legionState.memoryVaultStats.volatileNeg || 0}</span></div>
+            <div className="stat-item"><span className="stat-label">Negative core</span><span className="stat-value">{legionState.memoryVaultStats.coreNeg || 0}</span></div>
+          </div>
+
+          <div className='stat-row'>
+            <div className="stat-item"><span className="stat-label">Total volatile</span><span className="stat-value">{legionState.memoryVaultStats.totalVolatile || 0}</span></div>
+            <div className="stat-item"><span className="stat-label">Total core</span><span className="stat-value">{legionState.memoryVaultStats.totalCore || 0}</span></div>
           </div>
         </div>
       </div>

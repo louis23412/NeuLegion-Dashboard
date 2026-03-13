@@ -27,6 +27,10 @@ const ControllerCompactCard = ({ controller, type, onViewDetails }) => {
           <span className={`stat-value ${probColor}`}>{controller.stats.probability} %</span>
         </div>
         <div className="stat-item">
+          <span className="stat-label">Influence</span>
+          <span className="stat-value">{controller.influence} %</span>
+        </div>
+        <div className="stat-item">
           <span className="stat-label">Speed</span>
           <span className="stat-value">{controller.signalSpeed} s</span>
         </div>
@@ -346,7 +350,7 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://10.97.65.114:3001');
+      const response = await fetch('http://localhost:3000');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
@@ -476,7 +480,8 @@ const App = () => {
         </div>
         <p>
           Total population: <span className="stat-value">{legionState.overview.population || 0}</span> • 
-          Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}
+          Controllers: <span className='stat-value'>{legionState.controllers?.positive?.voters?.length + legionState.controllers?.negative?.voters?.length}</span> • 
+          Last updated: <span className='stat-value'>{lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}</span>
         </p>
       </div>
 
@@ -664,8 +669,9 @@ const App = () => {
         />
         <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="sort-select">
           <option value="accuracy">Sort: Accuracy Score ↓</option>
-          <option value="probability">Sort: Probability ↓</option>
-          <option value="speed">Sort: Signal Speed ↑</option>
+          <option value="probability">Sort: Confidence ↓</option>
+          <option value="influence">Sort: Influence ↓</option>
+          <option value="speed">Sort: Speed ↑</option>
         </select>
       </div>
 

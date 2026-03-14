@@ -346,11 +346,13 @@ const App = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showChartModal, setShowChartModal] = useState(false);
 
+  const ipAddress = import.meta.env.localIp;
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:3000');
+      const response = await fetch(`http://${ipAddress}:3000`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
@@ -480,7 +482,7 @@ const App = () => {
         </div>
         <p>
           Total population: <span className="stat-value">{legionState.overview.population || 0}</span> • 
-          Controllers: <span className='stat-value'>{legionState.controllers?.positive?.voters?.length + legionState.controllers?.negative?.voters?.length}</span> • 
+          Controllers: <span className='stat-value'>{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span> • 
           Last updated: <span className='stat-value'>{lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}</span>
         </p>
       </div>

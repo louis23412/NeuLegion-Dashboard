@@ -1,48 +1,63 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import './App.css';
 
-const ControllerCompactCard = ({ controller, type, onViewDetails }) => {
+import accuracy from './icons/accuracy.png';
+import chart from './icons/chart.png';
+import influence from './icons/influence.png';
+import pop from './icons/pop.png';
+import pulse from './icons/pulse.png';
+
+const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) => {
   const isPositive = type === 'positive';
-  const probColor = controller.stats.probability > 70 ? 'green' : controller.stats.probability > 45 ? 'accent' : 'red';
 
   return (
-    <div className={`controller-compact ${isPositive ? 'positive' : 'negative'}`}>
+    <div 
+      className={`controller-compact ${isPositive ? 'green-controller' : 'red-controller'}`}
+      onClick={() => onViewDetails(controller, type)}
+    >
       <div className="center">
-        <div 
-          className="id clickable" 
-          onClick={() => navigator.clipboard.writeText(controller.id)}
-          title="Click to copy ID"
-        >
-          {controller.id} ({controller.params.population})
-        </div>
+        <h6 className="id">
+          {controller.id}
+        </h6>
       </div>
 
       <div className="key-metrics">
-        <div className="stat-item">
-          <span className="stat-label">Accuracy Score</span>
-          <span className="stat-value">{controller.stats.accuracyScore}</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">Confidence</span>
-          <span className={`stat-value ${probColor}`}>{controller.stats.probability} %</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">Influence</span>
-          <span className="stat-value">{controller.influence} %</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">Speed</span>
-          <span className="stat-value">{controller.signalSpeed} s</span>
-        </div>
-      </div>
 
-      <div className="center">
-        <button
-          className="details-btn"
-          onClick={() => onViewDetails(controller, type)}
-        >
-          View Full Details
-        </button>
+        <div className={"center"}>
+          <div className={`column ${selected === 'speed' ? 'selected-sort' : ''}`}>
+            <img src={pulse} alt="pulse"/>
+            <span className="stat-value">{(controller.signalSpeed).toFixed(2)}s</span>
+          </div>
+        </div>
+
+        <div className={`center ${selected === 'population' ? 'selected-sort' : ''}`}>
+          <div className='column'>
+            <img src={pop} alt="pop"/>
+            <span className="stat-value">{controller.params.population}</span>
+          </div>
+        </div>
+
+        <div className={`center ${selected === 'accuracy' ? 'selected-sort' : ''}`}>
+          <div className='column'>
+            <img src={accuracy} alt="accuracy" className='icon' />
+            <span className="stat-value">{(controller.stats.accuracyScore).toFixed(2)}%</span>
+          </div>
+        </div>
+
+        <div className={`center ${selected === 'confidence' ? 'selected-sort' : ''}`}>
+          <div className='column'>
+            <img src={chart} alt="chart"/>
+            <span className="stat-value">{(controller.stats.probability).toFixed(2)}%</span>
+          </div>
+        </div>
+        
+        <div className={`center ${selected === 'influence' ? 'selected-sort' : ''}`}>
+          <div className='column'>
+            <img src={influence} alt="influence"/>
+            <span className="stat-value">{(controller.influence).toFixed(2)}%</span>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -151,7 +166,6 @@ const CandleChart = ({
   entryPrice, 
   exitPrice, 
   stopLoss,
-  direction = '',
   enlarged = false
 }) => {
   const canvasRef = useRef(null);
@@ -308,7 +322,7 @@ const CandleChart = ({
       }
     });
 
-  }, [candles, entryPrice, exitPrice, stopLoss, direction, enlarged]);
+  }, [candles, entryPrice, exitPrice, stopLoss, enlarged]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -337,14 +351,11 @@ const App = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedController, setSelectedController] = useState(null);
-  const [selectedType, setSelectedType] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('accuracy');
+  const [sortOption, setSortOption] = useState('speed');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [showChartModal, setShowChartModal] = useState(false);
 
   const ipAddress = import.meta.env.localIp;
 
@@ -357,13 +368,30 @@ const App = () => {
       const data = await response.json();
 
       setLegionState(data);
-      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedController(null);
+  };
+
+  const openModal = (controller) => {
+    setSelectedController(controller);
+    setShowModal(true);
+  };
+
+  const getComparator = (option) => (a, b) => {
+    if (option === 'speed') return a.signalSpeed - b.signalSpeed;
+    if (option === 'population') return b.params.population - a.params.population;
+    if (option === 'accuracy') return b.stats.accuracyScore - a.stats.accuracyScore;
+    if (option === 'confidence') return b.stats.probability - a.stats.probability;
+    if (option === 'influence') return b.influence - a.influence;
+  };
 
   useEffect(() => {
     fetchData();
@@ -388,75 +416,27 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showModal, fetchData]);
 
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedController(null);
-    setSelectedType('');
-  };
-
-  const openModal = (controller, type) => {
-    setSelectedController(controller);
-    setSelectedType(type);
-    setShowModal(true);
-  };
-
-  const computeAggregates = (voters = []) => {
-    if (!voters.length) return { bestScore: 0, worstScore: 0, avgScore: 0, fastest: 0, slowest: 0, avgSpeed: 0 };
-    const scores = voters.map(v => v.stats.accuracyScore);
-    const speeds = voters.map(v => v.signalSpeed);
-    return {
-      bestScore: Math.max(...scores),
-      worstScore: Math.min(...scores),
-      avgScore: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
-      fastest: Math.min(...speeds),
-      slowest: Math.max(...speeds),
-      avgSpeed: (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2)
-    };
-  };
-
   const positiveVoters = useMemo(() => {
     const voters = legionState.controllers?.positive?.voters || [];
-    const filtered = voters.filter(v =>
+    return voters.filter(v =>
       v.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
     );
-    return [...filtered].sort((a, b) => {
-      if (sortOption === 'accuracy') return b.stats.accuracyScore - a.stats.accuracyScore;
-      if (sortOption === 'probability') return b.stats.probability - a.stats.probability;
-      return a.signalSpeed - b.signalSpeed;
-    });
-  }, [legionState, searchTerm, sortOption]);
+  }, [legionState, searchTerm]);
 
   const negativeVoters = useMemo(() => {
     const voters = legionState.controllers?.negative?.voters || [];
-    const filtered = voters.filter(v =>
+    return voters.filter(v =>
       v.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
     );
-    return [...filtered].sort((a, b) => {
-      if (sortOption === 'accuracy') return b.stats.accuracyScore - a.stats.accuracyScore;
-      if (sortOption === 'probability') return b.stats.probability - a.stats.probability;
-      return a.signalSpeed - b.signalSpeed;
-    });
-  }, [legionState, searchTerm, sortOption]);
+  }, [legionState, searchTerm]);
 
-  const posAgg = useMemo(() => computeAggregates(legionState.controllers?.positive?.voters), [legionState]);
-  const negAgg = useMemo(() => computeAggregates(legionState.controllers?.negative?.voters), [legionState]);
-
-  const exportData = () => {
-    const dataStr = JSON.stringify(legionState, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `NeuLegion_${new Date().toISOString().slice(0, 19)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyControllerJSON = () => {
-    if (!selectedController) return;
-    navigator.clipboard.writeText(JSON.stringify(selectedController, null, 2));
-    alert('Controller JSON copied to clipboard!');
-  };
+  const sortedVoters = useMemo(() => {
+    const combined = [
+      ...positiveVoters.map(c => ({ ...c, type: 'positive' })),
+      ...negativeVoters.map(c => ({ ...c, type: 'negative' }))
+    ];
+    return combined.sort(getComparator(sortOption));
+  }, [positiveVoters, negativeVoters, sortOption]);
 
   return (
     <div className="main">
@@ -475,16 +455,8 @@ const App = () => {
             <button className="refresh-btn" onClick={fetchData} disabled={loading}>
               {loading ? '⟳ REFRESHING' : '⟳ REFRESH'}
             </button>
-            <button className="export-btn" onClick={exportData}>
-              ↓ EXPORT JSON
-            </button>
           </div>
         </div>
-        <p>
-          Total population: <span className="stat-value">{legionState.overview.population || 0}</span> • 
-          Controllers: <span className='stat-value'>{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span> • 
-          Last updated: <span className='stat-value'>{lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}</span>
-        </p>
       </div>
 
       {error && (
@@ -519,9 +491,19 @@ const App = () => {
               <span className="stat-value">{legionState.overview.runtimeSeconds || 0} s</span>
             </div>
           </div>
-        </div>
 
-        <div className='border'>
+          <div className='stat-row'>
+            <div className="stat-item">
+              <span className="stat-label">Total Population</span>
+              <span className="stat-value">{legionState.overview.population || 0}</span>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-label">Controllers</span>
+              <span className="stat-value">{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span>
+            </div>
+          </div>
+
           <div className='stat-row'>
             <div className="stat-item">
               <span className="stat-label">Direction</span>
@@ -544,9 +526,7 @@ const App = () => {
               <span className="stat-value">{legionState.consensus.stopLoss || '—'} ( -{legionState.consensus.stopLossPct || 0} % )</span>
             </div>
           </div>
-        </div>
 
-        <div className='border'>
           <div className='stat-row'>
             <div className="stat-item">
               <span className="stat-label">Open simulations</span>
@@ -594,9 +574,7 @@ const App = () => {
               <span className="stat-value">{legionState.consensus.record?.sellConfidenceAccuracy || 0} %</span>
             </div>
           </div>
-        </div>
 
-        <div className='border'>
           <div className='stat-row'>
             <div className="stat-item"><span className="stat-label">Total vault memories</span><span className="stat-value">{legionState.memoryVaultStats.totalVaultMemories || 0}</span></div>
 
@@ -621,112 +599,44 @@ const App = () => {
             <div className="stat-item"><span className="stat-label">Total core</span><span className="stat-value">{legionState.memoryVaultStats.totalCore || 0}</span></div>
           </div>
         </div>
-      </div>
 
-      <div className='border candle-section'>
-        <CandleChart 
-          candles={legionState.lastCandles || []}
-          entryPrice={legionState.consensus?.entryPrice}
-          exitPrice={legionState.consensus?.exitPrice}
-          stopLoss={legionState.consensus?.stopLoss}
-          direction={legionState.consensus?.direction}
-        />
-        
-        <button 
-          className="enlarge-chart-btn"
-          onClick={() => setShowChartModal(true)}
-        >
-          🔎 View Enlarged Chart
-        </button>
-      </div>
-
-      {showChartModal && (
-        <div className="modal-overlay" onClick={() => setShowChartModal(false)}>
-          <div className="modal enlarged-chart-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>NeuLegion — Full Candle View</h2>
-              <button className="close-btn" onClick={() => setShowChartModal(false)}>×</button>
-            </div>
-            <div className="modal-body enlarged">
-              <CandleChart 
-                candles={legionState.lastCandles || []}
-                entryPrice={legionState.consensus?.entryPrice}
-                exitPrice={legionState.consensus?.exitPrice}
-                stopLoss={legionState.consensus?.stopLoss}
-                direction={legionState.consensus?.direction}
-                enlarged={true}
-              />
-            </div>
-          </div>
+        <div className='border'>
+          <CandleChart 
+            candles={legionState.lastCandles || []}
+            entryPrice={legionState.consensus?.entryPrice}
+            exitPrice={legionState.consensus?.exitPrice}
+            stopLoss={legionState.consensus?.stopLoss}
+          />
         </div>
-      )}
-
-      <div className="controllers-controls">
-        <input
-          type="text"
-          placeholder="Search by controller ID..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="search-input"
-        />
-        <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="sort-select">
-          <option value="accuracy">Sort: Accuracy Score ↓</option>
-          <option value="probability">Sort: Confidence ↓</option>
-          <option value="influence">Sort: Influence ↓</option>
-          <option value="speed">Sort: Speed ↑</option>
-        </select>
       </div>
 
       <div className="controllers">
-        <div className="positive border">
-          <h3>Positive: <span className="count">({positiveVoters.length})</span></h3>
-          <div className="controller-overview">
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Best score</span><span className="stat-value">{posAgg.bestScore}</span></div>
-              <div className="stat-item"><span className="stat-label">Worst score</span><span className="stat-value">{posAgg.worstScore}</span></div>
-              <div className="stat-item"><span className="stat-label">Average score</span><span className="stat-value">{posAgg.avgScore}</span></div>
-            </div>
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Fastest</span><span className="stat-value">{posAgg.fastest} s</span></div>
-              <div className="stat-item"><span className="stat-label">Slowest</span><span className="stat-value">{posAgg.slowest} s</span></div>
-              <div className="stat-item"><span className="stat-label">Average speed</span><span className="stat-value">{posAgg.avgSpeed} s</span></div>
-            </div>
+        <div className="border">
+          <div className="controllers-controls">
+            <input
+              type="text"
+              placeholder="Search by controller ID..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="sort-select">
+              <option value="speed">Sort: Speed ↑</option>
+              <option value="population">Sort: Population ↓</option>
+              <option value="accuracy">Sort: Accuracy Score ↓</option>
+              <option value="confidence">Sort: Confidence ↓</option>
+              <option value="influence">Sort: Influence ↓</option>
+            </select>
           </div>
 
-          <div className="controller-grid">
-            {positiveVoters.map(x => (
+          <div className='controller-grid'>
+            {sortedVoters.map((controller) => (
               <ControllerCompactCard
-                key={x.id}
-                controller={x}
-                type="positive"
+                key={controller.id}
+                controller={controller}
+                type={controller.type}
                 onViewDetails={openModal}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="negative border">
-          <h3>Negative: <span className="count">({negativeVoters.length})</span></h3>
-          <div className="controller-overview">
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Best score</span><span className="stat-value">{negAgg.bestScore}</span></div>
-              <div className="stat-item"><span className="stat-label">Worst score</span><span className="stat-value">{negAgg.worstScore}</span></div>
-              <div className="stat-item"><span className="stat-label">Average score</span><span className="stat-value">{negAgg.avgScore}</span></div>
-            </div>
-            <div className="stat-row">
-              <div className="stat-item"><span className="stat-label">Fastest</span><span className="stat-value">{negAgg.fastest} s</span></div>
-              <div className="stat-item"><span className="stat-label">Slowest</span><span className="stat-value">{negAgg.slowest} s</span></div>
-              <div className="stat-item"><span className="stat-label">Average speed</span><span className="stat-value">{negAgg.avgSpeed} s</span></div>
-            </div>
-          </div>
-
-          <div className="controller-grid">
-            {negativeVoters.map(x => (
-              <ControllerCompactCard
-                key={x.id}
-                controller={x}
-                type="negative"
-                onViewDetails={openModal}
+                selected={sortOption}
               />
             ))}
           </div>
@@ -737,14 +647,11 @@ const App = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Controller {selectedController.id} — Full Details</h2>
-              <div>
-                <button className="copy-btn" onClick={copyControllerJSON}>📋 JSON</button>
-                <button className="close-btn" onClick={closeModal}>×</button>
-              </div>
+              <h2>{selectedController.id}</h2>
+              <button className="close-btn pull-right" onClick={closeModal}>×</button>
             </div>
             <div className="modal-body">
-              <FullControllerDetails controller={selectedController} type={selectedType} />
+              <FullControllerDetails controller={selectedController} />
             </div>
           </div>
         </div>

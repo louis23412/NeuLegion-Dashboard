@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import './App.css';
 
-import accuracy from './icons/accuracy.png';
-import chart from './icons/chart.png';
-import influence from './icons/influence.png';
-import pop from './icons/pop.png';
-import pulse from './icons/pulse.png';
+import mainLogo from './assets/main-logo.png';
+import accuracy from './assets/accuracy.png';
+import chart from './assets/chart.png';
+import influence from './assets/influence.png';
+import pop from './assets/pop.png';
+import pulse from './assets/pulse.png';
 
 const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) => {
   const isPositive = type === 'positive';
@@ -22,13 +23,6 @@ const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) =>
       </div>
 
       <div className="key-metrics">
-
-        <div className={"center"}>
-          <div className={`column ${selected === 'speed' ? 'selected-sort' : ''}`}>
-            <img src={pulse} alt="pulse"/>
-            <span className="stat-value">{(controller.signalSpeed).toFixed(2)}s</span>
-          </div>
-        </div>
 
         <div className={`center ${selected === 'population' ? 'selected-sort' : ''}`}>
           <div className='column'>
@@ -55,6 +49,13 @@ const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) =>
           <div className='column'>
             <img src={influence} alt="influence"/>
             <span className="stat-value">{(controller.influence).toFixed(2)}%</span>
+          </div>
+        </div>
+
+        <div className={"center"}>
+          <div className={`column ${selected === 'speed' ? 'selected-sort' : ''}`}>
+            <img src={pulse} alt="pulse"/>
+            <span className="stat-value">{(controller.signalSpeed).toFixed(2)}s</span>
           </div>
         </div>
 
@@ -354,7 +355,7 @@ const App = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedController, setSelectedController] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('speed');
+  const [sortOption, setSortOption] = useState('accuracy');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const ipAddress = import.meta.env.localIp;
@@ -386,11 +387,11 @@ const App = () => {
   };
 
   const getComparator = (option) => (a, b) => {
-    if (option === 'speed') return a.signalSpeed - b.signalSpeed;
     if (option === 'population') return b.params.population - a.params.population;
     if (option === 'accuracy') return b.stats.accuracyScore - a.stats.accuracyScore;
     if (option === 'confidence') return b.stats.probability - a.stats.probability;
     if (option === 'influence') return b.influence - a.influence;
+    if (option === 'speed') return a.signalSpeed - b.signalSpeed;
   };
 
   useEffect(() => {
@@ -442,7 +443,11 @@ const App = () => {
     <div className="main">
       <div className="premium-header">
         <div className="header-top">
-          <h1>NeuLegion</h1>
+          <div className='logo-and-name'>
+            <img src={mainLogo} alt="main logo" className='main-logo'/>
+            <h1>Neu<span className='orange'>Legion</span></h1>
+          </div>
+
           <div className="live-controls">
             <label className="live-toggle">
               <input
@@ -468,6 +473,11 @@ const App = () => {
 
       <div className="overview-section">
         <div className='border'>
+
+          <div className='stat-row'>
+            <span className='overview-label'>Overview</span>
+          </div>
+
           <div className='stat-row'>
             <div className="stat-item">
               <span className="stat-label">Status</span>
@@ -502,6 +512,10 @@ const App = () => {
               <span className="stat-label">Controllers</span>
               <span className="stat-value">{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span>
             </div>
+          </div>
+
+          <div className='stat-row'>
+            <span className='overview-label'>Consensus</span>
           </div>
 
           <div className='stat-row'>
@@ -576,6 +590,10 @@ const App = () => {
           </div>
 
           <div className='stat-row'>
+            <span className='overview-label'>Memory vault</span>
+          </div>
+
+          <div className='stat-row'>
             <div className="stat-item"><span className="stat-label">Total vault memories</span><span className="stat-value">{legionState.memoryVaultStats.totalVaultMemories || 0}</span></div>
 
             <div className='stat-item'>
@@ -621,11 +639,11 @@ const App = () => {
               className="search-input"
             />
             <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="sort-select">
-              <option value="speed">Sort: Speed ↑</option>
               <option value="population">Sort: Population ↓</option>
               <option value="accuracy">Sort: Accuracy Score ↓</option>
               <option value="confidence">Sort: Confidence ↓</option>
               <option value="influence">Sort: Influence ↓</option>
+              <option value="speed">Sort: Speed ↑</option>
             </select>
           </div>
 

@@ -7,6 +7,8 @@ import chart from './assets/chart.png';
 import influence from './assets/influence.png';
 import pop from './assets/pop.png';
 import pulse from './assets/pulse.png';
+import chartUp from './assets/up.png';
+import chartDown from './assets/down.png';
 
 const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) => {
   const isPositive = type === 'positive';
@@ -26,35 +28,35 @@ const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) =>
 
         <div className={`center ${selected === 'population' ? 'selected-sort' : ''}`}>
           <div className='column'>
-            <img src={pop} alt="pop"/>
+            <img src={pop} alt="pop" className='compact-icon'/>
             <span className="stat-value">{controller.params.population}</span>
           </div>
         </div>
 
         <div className={`center ${selected === 'accuracy' ? 'selected-sort' : ''}`}>
           <div className='column'>
-            <img src={accuracy} alt="accuracy" className='icon' />
+            <img src={accuracy} alt="accuracy" className='compact-icon' />
             <span className="stat-value">{(controller.stats.accuracyScore).toFixed(2)}%</span>
           </div>
         </div>
 
         <div className={`center ${selected === 'confidence' ? 'selected-sort' : ''}`}>
           <div className='column'>
-            <img src={chart} alt="chart"/>
+            <img src={chart} alt="chart" className='compact-icon'/>
             <span className="stat-value">{(controller.stats.probability).toFixed(2)}%</span>
           </div>
         </div>
         
         <div className={`center ${selected === 'influence' ? 'selected-sort' : ''}`}>
           <div className='column'>
-            <img src={influence} alt="influence"/>
+            <img src={influence} alt="influence" className='compact-icon'/>
             <span className="stat-value">{(controller.influence).toFixed(2)}%</span>
           </div>
         </div>
 
         <div className={"center"}>
           <div className={`column ${selected === 'speed' ? 'selected-sort' : ''}`}>
-            <img src={pulse} alt="pulse"/>
+            <img src={pulse} alt="pulse" className='compact-icon'/>
             <span className="stat-value">{(controller.signalSpeed).toFixed(2)}s</span>
           </div>
         </div>
@@ -113,14 +115,10 @@ const FullControllerDetails = ({ controller }) => {
         <h4 className="section-title">Performance Stats</h4>
         <div className="stat-group">
           <div className="stat-row">
-            <div className="stat-item">
-              <span className="stat-label">Confidence</span>
-              <span className="stat-value">{controller.stats.lifetimeMinProb} &lt; {controller.stats.probability} % &gt; {controller.stats.lifetimeMaxProb}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">Accuracy score</span>
-              <span className="stat-value">{controller.stats.lifetimeMinScore} &lt; {controller.stats.accuracyScore} &gt; {controller.stats.lifetimeMaxScore}</span>
-            </div>
+          </div>
+          <div className="stat-row">
+            <div className="stat-item"><span className="stat-label">Confidence</span><span className="stat-value">{controller.stats.probability} %</span></div>
+            <div className="stat-item"><span className="stat-label">Accuracy</span><span className="stat-value">{controller.stats.accuracyScore} %</span></div>
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Trade accuracy</span><span className="stat-value">{controller.stats.tradeAccuracy} %</span></div>
@@ -253,7 +251,7 @@ const CandleChart = ({
       ctx.fillStyle = '#555';
       ctx.font = '10.5px monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(priceVal.toFixed(5), paddingLeft - 18, y + 3.5);
+      ctx.fillText(priceVal.toFixed(4), paddingLeft - 18, y + 3.5);
     }
     ctx.setLineDash([]);
 
@@ -335,7 +333,134 @@ const CandleChart = ({
   }, [drawChart]);
 
   return (
-    <div ref={containerRef} className={`candle-chart-container ${enlarged ? 'enlarged' : ''}`}>
+    <div ref={containerRef} className={'candle-chart-container'}>
+      <canvas ref={canvasRef} className="candle-canvas" />
+    </div>
+  );
+};
+
+const ScoreHistoryChart = ({ 
+  scoreHistories = [], 
+  enlarged = false 
+}) => {
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const drawChart = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    const containerWidth = container.clientWidth - (enlarged ? 80 : 48);
+    const displayWidth = enlarged 
+      ? Math.min(containerWidth, 1280) 
+      : Math.max(520, Math.min(containerWidth, 1180));
+    const displayHeight = Math.floor(displayWidth * (enlarged ? 0.48 : 0.42));
+
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+    ctx.fillStyle = '#161616';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    if (scoreHistories.length < 2) {
+      ctx.fillStyle = '#666';
+      ctx.font = '16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        scoreHistories.length === 0 ? 'Waiting for score history data...' : 'Insufficient data',
+        displayWidth / 2, 
+        displayHeight / 2
+      );
+      return;
+    }
+
+    const minScore = 0;
+    const maxScore = 100;
+    const scoreRange = maxScore - minScore;
+
+    const paddingLeft = 78;
+    const paddingRight = 68;
+    const paddingTop = 42;
+    const paddingBottom = 30;
+    const chartHeight = displayHeight - paddingTop - paddingBottom;
+
+    const getY = (score) => paddingTop + ((maxScore - score) / scoreRange) * chartHeight;
+
+    ctx.strokeStyle = '#1f1f1f';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    for (let i = 0; i <= 5; i++) {
+      const y = paddingTop + (i / 5) * chartHeight;
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft - 12, y);
+      ctx.lineTo(displayWidth - paddingRight + 16, y);
+      ctx.stroke();
+
+      const scoreVal = maxScore - (i / 5) * scoreRange;
+      ctx.fillStyle = '#555';
+      ctx.font = '10.5px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(scoreVal.toFixed(0), paddingLeft - 18, y + 3.5);
+    }
+    ctx.setLineDash([]);
+
+    const colors = {
+      buyScore: '#22c55e',
+      sellScore: '#ef4444',
+      finalScore: '#ffaa33'
+    };
+
+    const lineWidth = 1;
+
+    const historyLength = scoreHistories.length;
+    const slotWidth = (displayWidth - paddingLeft - paddingRight) / (historyLength - 1 || 1);
+
+    const scoreKeys = ['buyScore', 'sellScore', 'finalScore'];
+
+    scoreKeys.forEach(key => {
+      ctx.strokeStyle = colors[key];
+      ctx.lineWidth = lineWidth;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      let first = true;
+
+      scoreHistories.forEach((entry, i) => {
+        const x = paddingLeft + i * slotWidth;
+        const y = getY(entry[key] || 0);
+
+        if (first) {
+          ctx.moveTo(x, y);
+          first = false;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    });
+
+  }, [scoreHistories, enlarged]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => drawChart());
+    observer.observe(container);
+    drawChart();
+    return () => observer.disconnect();
+  }, [drawChart]);
+
+  return (
+    <div ref={containerRef} className={`candle-chart-container`}>
       <canvas ref={canvasRef} className="candle-canvas" />
     </div>
   );
@@ -445,7 +570,14 @@ const App = () => {
         <div className="header-top">
           <div className='logo-and-name'>
             <img src={mainLogo} alt="main logo" className='main-logo'/>
-            <h1>Neu<span className='orange'>Legion</span></h1>
+
+            <div>
+              <h1 className='main-text'>Neu<span className='orange'>Legion</span></h1>
+              <div className='spread'>
+                <span>Population: <span className='orange'>{legionState.overview.population || 0}</span></span>
+                <span>Controllers: <span className='orange'>{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span></span>
+              </div>
+            </div>
           </div>
 
           <div className="live-controls">
@@ -471,160 +603,82 @@ const App = () => {
         </div>
       )}
 
-      <div className="overview-section">
-        <div className='border'>
+      <div className='border spread chart-block status-block'>
+        <span>Status: <span className='orange'>{legionState.overview?.status || '-'}</span></span>
+        <span>Candle: #<span className='orange'>{legionState.overview?.candleCounter || '-'}</span></span>
+        <span>Update time: <span className='orange'>{legionState.overview?.updateTime || '-'}</span>s</span>
+        <span>Runtime: <span className='orange'>{legionState.overview?.runtimeSeconds || '-'}</span>s</span>
+      </div>
 
-          <div className='stat-row'>
-            <span className='overview-label'>Overview</span>
-          </div>
+      <div className='border'>
+        <div className='center consensus-answer'>
+          <span className='spread'>
+            Consensus: 
+            <img src={legionState.consensus?.direction === 'BUY' ? chartUp : chartDown} alt="direction" />
+            <span className={`${legionState.consensus?.direction === 'BUY' ? 'green' : 'red'}`}> {legionState.consensus?.direction || '—'} </span>
+          </span>
 
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Status</span>
-              <span className="stat-value">{legionState.overview.status || '—'}</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Candle</span>
-              <span className="stat-value">{legionState.overview.candleCounter || 0}</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Last update</span>
-              <span className="stat-value">{legionState.overview.updateTime || 0} s</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Runtime</span>
-              <span className="stat-value">{legionState.overview.runtimeSeconds || 0} s</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Total Population</span>
-              <span className="stat-value">{legionState.overview.population || 0}</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Controllers</span>
-              <span className="stat-value">{(legionState.controllers?.positive?.voters?.length || 0) + (legionState.controllers?.negative?.voters?.length || 0)}</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <span className='overview-label'>Consensus</span>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Direction</span>
-              <span className='stat-value'>
-                {legionState.consensus.direction || '—'} ( {legionState.consensus.confidence || 0} % )
-              </span>
-            </div>
-
-            <div className="stat-item"><span className="stat-label">Entry</span><span className="stat-value">{legionState.consensus.entryPrice || '—'}</span></div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Exit</span>
-              <span className="stat-value">{legionState.consensus.exitPrice || '—'} ( +{legionState.consensus.profitPct || 0} % )</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Stop Loss</span>
-              <span className="stat-value">{legionState.consensus.stopLoss || '—'} ( -{legionState.consensus.stopLossPct || 0} % )</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Open simulations</span>
-              <span className="stat-value">{legionState.consensus.record?.openSimulations || 0}</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Final Accuracy Score</span>
-              <span className="stat-value">{legionState.consensus.record?.finalAccuracyScore || 0}</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Buy Accuracy Score</span>
-              <span className="stat-value">{legionState.consensus.record?.buyAccuracyScore || 0}</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Sell Accuracy Score</span>
-              <span className="stat-value">{legionState.consensus.record?.sellAccuracyScore || 0}</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Buy Trade Accuracy</span>
-              <span className="stat-value">{legionState.consensus.record?.buyTradeAccuracy || 0} %</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Sell Trade Accuracy</span>
-              <span className="stat-value">{legionState.consensus.record?.sellTradeAccuracy || 0} %</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item">
-              <span className="stat-label">Buy Confidence Accuracy</span>
-              <span className="stat-value">{legionState.consensus.record?.buyConfidenceAccuracy || 0} %</span>
-            </div>
-
-            <div className="stat-item">
-              <span className="stat-label">Sell Confidence Accuracy</span>
-              <span className="stat-value">{legionState.consensus.record?.sellConfidenceAccuracy || 0} %</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <span className='overview-label'>Memory vault</span>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item"><span className="stat-label">Total vault memories</span><span className="stat-value">{legionState.memoryVaultStats.totalVaultMemories || 0}</span></div>
-
-            <div className='stat-item'>
-              <span className='stat-label'>Vault Fill</span>
-              <span className='stat-value'>{legionState.memoryVaultStats.vaultFillPercentage || 0} %</span>
-            </div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item"><span className="stat-label">Positive volatile</span><span className="stat-value">{legionState.memoryVaultStats.volatilePos || 0}</span></div>
-            <div className="stat-item"><span className="stat-label">Positive core</span><span className="stat-value">{legionState.memoryVaultStats.corePos || 0}</span></div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item"><span className="stat-label">Negative volatile</span><span className="stat-value">{legionState.memoryVaultStats.volatileNeg || 0}</span></div>
-            <div className="stat-item"><span className="stat-label">Negative core</span><span className="stat-value">{legionState.memoryVaultStats.coreNeg || 0}</span></div>
-          </div>
-
-          <div className='stat-row'>
-            <div className="stat-item"><span className="stat-label">Total volatile</span><span className="stat-value">{legionState.memoryVaultStats.totalVolatile || 0}</span></div>
-            <div className="stat-item"><span className="stat-label">Total core</span><span className="stat-value">{legionState.memoryVaultStats.totalCore || 0}</span></div>
-          </div>
+          <span className='spread'>Confidence: <span className='orange'>{legionState.consensus?.confidence || '—'}</span> %</span>
         </div>
 
-        <div className='border'>
-          <CandleChart 
-            candles={legionState.lastCandles || []}
-            entryPrice={legionState.consensus?.entryPrice}
-            exitPrice={legionState.consensus?.exitPrice}
-            stopLoss={legionState.consensus?.stopLoss}
-          />
+        <div className='chart-section'>
+          <div className='chart-block'>
+            <CandleChart 
+              candles={legionState.lastCandles || []}
+              entryPrice={legionState.consensus?.entryPrice}
+              exitPrice={legionState.consensus?.exitPrice}
+              stopLoss={legionState.consensus?.stopLoss}
+            />
+
+            <div className='center spread'>
+              <span>Entry: <span className='orange'>{legionState.consensus?.entryPrice || '—'}</span></span>
+              <span>
+                Exit: 
+                <span className='orange'> {legionState.consensus?.exitPrice || '—'} </span> 
+                ( <span className='orange'>{legionState.consensus?.profitPct || '—'}</span>% )
+              </span>
+              <span>
+                Stop Loss: 
+                <span className='orange'> {legionState.consensus?.stopLoss || '—'} </span> 
+                ( <span className='orange'>{legionState.consensus?.stopLossPct || '—'}</span>% )
+              </span>
+            </div>
+          </div>
+
+          <div className='chart-block'>
+            <ScoreHistoryChart 
+              scoreHistories={legionState.consensus?.record?.scoreHistories || []}
+            />
+
+            <div className='center spread'>
+              <span>
+                Buy:
+                <span className='orange'> {legionState.consensus?.record?.minBuyAccuracyScore || 0} </span>
+                {'<'}
+                <span className='orange'> {legionState.consensus?.record?.buyAccuracyScore || 0} </span>
+                {'>'}
+                <span className='orange'> {legionState.consensus?.record?.maxBuyAccuracyScore || 0}</span>
+              </span>
+
+              <span>
+                Sell:
+                <span className='orange'> {legionState.consensus?.record?.minSellAccuracyScore  || 0} </span>
+                {'<'}
+                <span className='orange'> {legionState.consensus?.record?.sellAccuracyScore || 0} </span>
+                {'>'}
+                <span className='orange'> {legionState.consensus?.record?.maxSellAccuracyScore || 0}</span>
+              </span>
+
+              <span>
+                Final:
+                <span className='orange'> {legionState.consensus?.record?.minFinalAccuracy || 0} </span>
+                {'<'}
+                <span className='orange'> {legionState.consensus?.record?.finalAccuracyScore || 0} </span>
+                {'>'}
+                <span className='orange'> {legionState.consensus?.record?.maxFinalAccuracy || 0}</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -675,7 +729,7 @@ const App = () => {
         </div>
       )}
 
-      {loading && <div className="global-spinner">NeuLegion is syncing with the hive...</div>}
+      {loading && <div>NeuLegion is syncing...</div>}
     </div>
   );
 };

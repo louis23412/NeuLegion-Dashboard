@@ -20,7 +20,7 @@ const ControllerCompactCard = ({ controller, type, onViewDetails, selected }) =>
     >
       <div className="center">
         <h6 className="id">
-          {controller.id}
+          {controller.id} - <span className={`${selected === 'tier' ? 'selected-sort' : ''}`}>T{controller.tier}</span>
         </h6>
       </div>
 
@@ -118,7 +118,7 @@ const FullControllerDetails = ({ controller }) => {
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Confidence</span><span className="stat-value">{controller.stats.probability} %</span></div>
-            <div className="stat-item"><span className="stat-label">Accuracy</span><span className="stat-value">{controller.stats.accuracyScore} %</span></div>
+            <div className="stat-item"><span className="stat-label">Final accuracy</span><span className="stat-value">{controller.stats.accuracyScore} %</span></div>
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Trade accuracy</span><span className="stat-value">{controller.stats.tradeAccuracy} %</span></div>
@@ -139,8 +139,8 @@ const FullControllerDetails = ({ controller }) => {
         <h4 className="section-title">Memory</h4>
         <div className="stat-group">
           <div className="stat-row">
-            <div className="stat-item"><span className="stat-label">Memory connections</span><span className="stat-value">{controller.memory.memoryConnections}</span></div>
             <div className="stat-item"><span className="stat-label">Controller memories</span><span className="stat-value">{controller.memory.controllerMemories}</span></div>
+            <div className="stat-item"><span className="stat-label"></span><span className="stat-value">{''}</span></div>
           </div>
           <div className="stat-row">
             <div className="stat-item"><span className="stat-label">Memories sent</span><span className="stat-value">{controller.memory.totalSent}</span></div>
@@ -151,8 +151,12 @@ const FullControllerDetails = ({ controller }) => {
             <div className="stat-item"><span className="stat-label">Per member</span><span className="stat-value">{controller.memory.lastMemoriesPerMember}</span></div>
           </div>
           <div className="stat-row">
-            <div className="stat-item"><span className="stat-label">Peer broadcasted</span><span className="stat-value">{controller.memory.lastBroadcastPeerMemories}</span></div>
-            <div className="stat-item"><span className="stat-label">Vault supplied</span><span className="stat-value">{controller.memory.lastBroadcastVaultMemories}</span></div>
+            <div className="stat-item"><span className="stat-label">Peer connections</span><span className="stat-value">{controller.memory.memoryConnections}</span></div>
+            <div className="stat-item"><span className="stat-label">Child connections</span><span className="stat-value">{controller.memory.childConnections}</span></div>
+          </div>
+          <div className="stat-row">
+            <div className="stat-item"><span className="stat-label">Peer broadcasted</span><span className="stat-value">{controller.memory.lastBroadcastPeerMemories ?? 0}</span></div>
+            <div className="stat-item"><span className="stat-label">Vault supplied</span><span className="stat-value">{controller.memory.lastBroadcastVaultMemories ?? 0}</span></div>
           </div>
         </div>
       </div>
@@ -512,6 +516,7 @@ const App = () => {
   };
 
   const getComparator = (option) => (a, b) => {
+    if (option === 'tier') return b.tier - a.tier;
     if (option === 'population') return b.params.population - a.params.population;
     if (option === 'accuracy') return b.stats.accuracyScore - a.stats.accuracyScore;
     if (option === 'confidence') return b.stats.probability - a.stats.probability;
@@ -693,6 +698,7 @@ const App = () => {
               className="search-input"
             />
             <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="sort-select">
+              <option value="tier">Sort: Tier ↓</option>
               <option value="population">Sort: Population ↓</option>
               <option value="accuracy">Sort: Accuracy Score ↓</option>
               <option value="confidence">Sort: Confidence ↓</option>

@@ -130,9 +130,7 @@ body {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    position: relative;
-    height: 100%;
+    gap: 0.75rem;
 }
 
 .controller-compact .id {
@@ -151,13 +149,14 @@ body {
 .controller-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 24px;
+    gap: 1rem;
 }
 
 .controllers {
     display: flex;
     flex-direction: column;
     gap: 72px;
+    margin-top: 1rem;
 }
 
 .controllers-controls {
@@ -165,6 +164,7 @@ body {
     gap: 16px;
     margin-bottom: 24px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .error-banner {
@@ -401,12 +401,8 @@ body {
 }
 
 .selected-sort {
-    border-bottom: 1px solid var(--text-accent);
-    border-radius: 0.25rem;
-}
-
-.sort-select {
-    min-width: 220px;
+    text-decoration: underline;
+    text-decoration-color: var(--text-accent);
 }
 
 .spread {
@@ -453,9 +449,6 @@ body {
 }
 
 @media (max-width: 560px) {
-    .controller-grid {
-        grid-template-columns: 1fr;
-    }
     .border {
         padding: 20px;
     }
@@ -466,6 +459,9 @@ body {
 }
 
 @media (max-width: 720px) {
+    .controller-grid {
+        grid-template-columns: 1fr;
+    }
     .candle-canvas {
         max-width: 100%;
     }
@@ -486,9 +482,6 @@ body {
 @media (max-width: 1480px) {
     .chart-section {
         grid-template-columns: 1fr;
-    }
-    .controller-grid {
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
     .compact-icon {
         width: 25px;
